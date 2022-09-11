@@ -1,0 +1,24 @@
+name: "test-1"
+ip: "127.0.0.1"
+port: 2048
+etcd:
+  - "127.0.0.1:2379"
+data_dir: "/Users/wenfeng/tmp/data/vanus/standalone"
+gateway_endpoint: "127.0.0.1:18080"
+topology:
+  test-1: 127.0.0.1:2048
+replicas: 3
+metadata:
+  key_prefix: "/wenfeng"
+embed_etcd:
+  # relative path to ${data_dir} above
+  data_dir: "etcd"
+  listen_client_addr: 127.0.0.1:2379
+  listen_peer_addr: 127.0.0.1:2380
+  advertise_client_addr: 127.0.0.1:2379
+  advertise_peer_addr: 127.0.0.1:2380
+  heartbeat-interval: 600000
+  election-timeout: 600000
+  clusters:
+    - test-1=http://127.0.0.1:2380
+secret_encryption_salt: "encryption_salt"
