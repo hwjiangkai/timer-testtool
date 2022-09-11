@@ -30,7 +30,7 @@ func testcase2() *cobra.Command {
 				utils.CmdFailedf(cmd, "create eventbus failed, eventbus: %s, err: %s", eventbus, err.Error())
 			}
 			ebClient := utils.NewEventbusClient(ctx, timerBuiltInEventbusReceivingStation)
-			defer ebClient.Close()
+			defer ebClient.Close(ctx)
 
 			// 2. test data injection
 			// record the time spent writing messages

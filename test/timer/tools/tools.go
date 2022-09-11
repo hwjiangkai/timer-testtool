@@ -137,7 +137,7 @@ func putEventCommand() *cobra.Command {
 			event := ce.NewEvent()
 			event.SetExtension(xceVanusEventbus, eventbus)
 			ebClient := utils.NewEventbusClient(ctx, eventbus)
-			defer ebClient.Close()
+			defer ebClient.Close(ctx)
 			now := time.Now().UTC()
 			off, err := ebClient.Append(ctx, &event)
 			log.Info(ctx, "time spent, unit: millisecounds", map[string]interface{}{
@@ -170,7 +170,7 @@ func putScheduledEventCommand() *cobra.Command {
 			deliveryTime := time.Now().Add(time.Duration(delay) * time.Second).UTC().Format(time.RFC3339)
 			event.SetExtension(xceVanusDeliveryTime, deliveryTime)
 			ebClient := utils.NewEventbusClient(ctx, timerBuiltInEventbusReceivingStation)
-			defer ebClient.Close()
+			defer ebClient.Close(ctx)
 			now := time.Now().UTC()
 			off, err := ebClient.Append(ctx, &event)
 			log.Info(ctx, "time spent, unit: millisecounds", map[string]interface{}{
@@ -200,7 +200,7 @@ func putBatchEventCommand() *cobra.Command {
 			eventbus := args[0]
 			ctx := context.Background()
 			ebClient := utils.NewEventbusClient(ctx, eventbus)
-			defer ebClient.Close()
+			defer ebClient.Close(ctx)
 			now := time.Now().UTC()
 			delay, _ = strconv.Atoi(eventDelayTime)
 			deliveryTime := time.Now().Add(time.Duration(delay) * time.Second).UTC().Format(time.RFC3339)

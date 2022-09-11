@@ -4,13 +4,16 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"time"
 
 	client "github.com/linkall-labs/vanus/client"
 	eb "github.com/linkall-labs/vanus/client/pkg/eventbus"
 	eventlog "github.com/linkall-labs/vanus/client/pkg/eventlog"
 	"github.com/linkall-labs/vanus/observability/log"
+	"github.com/linkall-labs/vanus/pkg/controller"
 	ctrlpb "github.com/linkall-labs/vanus/proto/pkg/controller"
 	meta "github.com/linkall-labs/vanus/proto/pkg/meta"
+	"google.golang.org/grpc/credentials/insecure"
 	emptypb "google.golang.org/protobuf/types/known/emptypb"
 )
 
@@ -20,12 +23,13 @@ var (
 )
 
 func ListEventbus(ctx context.Context) (*ctrlpb.ListEventbusResponse, error) {
-	eventbusCtrlCli := NewClient(CtrlEndpoints).makeSureClient(ctx, true)
+	eventbusCtrlCli := controller.NewEventbusClient(CtrlEndpoints, insecure.NewCredentials())
 	return eventbusCtrlCli.ListEventBus(ctx, &emptypb.Empty{})
 }
 
 func CreateEventbus(ctx context.Context, eventbus string) error {
-	eventbusCtrlCli := NewClient(CtrlEndpoints).makeSureClient(ctx, true)
+	// eventbusCtrlCli := NewClient(CtrlEndpoints).makeSureClient(ctx, true)
+	eventbusCtrlCli := controller.NewEventbusClient(CtrlEndpoints, insecure.NewCredentials())
 	_, err := eventbusCtrlCli.CreateEventBus(ctx, &ctrlpb.CreateEventBusRequest{
 		Name: eventbus,
 	})
@@ -43,7 +47,7 @@ func CreateEventbus(ctx context.Context, eventbus string) error {
 }
 
 func DeleteEventbus(ctx context.Context, eventbus string) error {
-	eventbusCtrlCli := NewClient(CtrlEndpoints).makeSureClient(ctx, true)
+	eventbusCtrlCli := controller.NewEventbusClient(CtrlEndpoints, insecure.NewCredentials())
 	_, err := eventbusCtrlCli.DeleteEventBus(ctx, &meta.EventBus{
 		Name: eventbus,
 	})
@@ -69,8 +73,8 @@ type ebClient struct {
 func NewEventlogClient(ctx context.Context, eventbus string) *ebClient {
 	vrn := fmt.Sprintf("vanus:///eventbus/%s?controllers=%s", eventbus, strings.Join(CtrlEndpoints, ","))
 	ls, _ := client.LookupReadableLogs(ctx, vrn)
-	eventlogReader, _ := client.OpenLogReader(ls[0].VRN)
-	eventlogWriter, _ := client.OpenLogWriter(ls[0].VRN)
+	eventlogReader, _ := client.OpenLogReader(ctx, ls[0].VRN)
+	eventlogWriter, _ := client.OpenLogWriter(ctx, ls[0].VRN)
 	return &ebClient{
 		eventbus:       eventbus,
 		eventlogReader: eventlogReader,
@@ -80,6 +84,10 @@ func NewEventlogClient(ctx context.Context, eventbus string) *ebClient {
 
 func NewEventbusClient(ctx context.Context, eventbus string) eb.BusWriter {
 	vrn := fmt.Sprintf("vanus:///eventbus/%s?controllers=%s", eventbus, strings.Join(CtrlEndpoints, ","))
-	eventbusWriter, _ := client.OpenBusWriter(vrn)
+	now := time.Now()
+	eventbusWriter, _ := client.OpenBusWriter(ctx, vrn)
+	log.Info(ctx, "timespent of NewEventbusClient.", map[string]interface{}{
+		"time": time.Since(now).Milliseconds(),
+	})
 	return eventbusWriter
 }

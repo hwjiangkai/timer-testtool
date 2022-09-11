@@ -17,5 +17,6 @@ func NewPerformanceTestCommand() *cobra.Command {
 	}
 	cmd.AddCommand(testcase1())
 	cmd.AddCommand(testcase2())
+	cmd.AddCommand(testcase3())
 	return cmd
 }
