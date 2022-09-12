@@ -19,7 +19,6 @@ func testcase3() *cobra.Command {
 		Short: "exec testcase1 of performance testing",
 		Run: func(cmd *cobra.Command, args []string) {
 			// 1. environmental preparation
-			var err error
 			ctx := context.Background()
 
 			// 2. test data injection
@@ -33,8 +32,8 @@ func testcase3() *cobra.Command {
 					defer wg.Done()
 					ebName := fmt.Sprintf("__Timer_1_%d", slot)
 					busWriter := utils.NewEventbusClient(ctx, ebName)
-					if busWriter != nil {
-						utils.CmdFailedf(cmd, "pt testcase3 put event failed, off: %+v, err: %s", busWriter, err.Error())
+					if busWriter == nil {
+						utils.CmdFailedf(cmd, "pt testcase3 new eventbus client failed")
 					}
 				}(int64(i))
 			}
