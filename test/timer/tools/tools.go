@@ -3,12 +3,16 @@ package tools
 import (
 	"context"
 	"encoding/json"
+	"os"
+	"reflect"
 	"strconv"
 	"sync"
 	"time"
 
 	ce "github.com/cloudevents/sdk-go/v2"
 	"github.com/fatih/color"
+	"github.com/jedib0t/go-pretty/v6/table"
+	"github.com/jedib0t/go-pretty/v6/text"
 	"github.com/linkall-labs/vanus/internal/kv/etcd"
 	"github.com/linkall-labs/vanus/observability/log"
 	"github.com/linkall-labs/vanus/test/timer/utils"
@@ -87,6 +91,11 @@ func NewEventCommand() *cobra.Command {
 	return cmd
 }
 
+const (
+	xVanusEventbus     = "xvanuseventbus"
+	xVanusDeliveryTime = "xvanusdeliverytime"
+)
+
 func getEventCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "get <eventbus-name> ",
@@ -109,6 +118,25 @@ func getEventCommand() *cobra.Command {
 			}
 
 			for idx, event := range events {
+				extensions := event.Extensions()
+				if deliveryTime, ok := extensions[xVanusDeliveryTime]; ok {
+					log.Warning(ctx, "xvanusdeliverytime", map[string]interface{}{
+						"deliveryTime": deliveryTime,
+						"type":         reflect.TypeOf(deliveryTime),
+					})
+					switch value := deliveryTime.(type) {
+					case string:
+						log.Warning(ctx, "xvanusdeliverytime type is string", map[string]interface{}{
+							"value": value,
+						})
+					case ce.Timestamp:
+						log.Warning(ctx, "xvanusdeliverytime type is timestamp", map[string]interface{}{
+							"value": value,
+						})
+					default:
+						log.Error(ctx, "xvanusdeliverytime type unknown, set to current time", nil)
+					}
+				}
 				data, _ := json.Marshal(map[string]interface{}{
 					"No.":   idx,
 					"Event": event.String(),
@@ -136,6 +164,14 @@ func putEventCommand() *cobra.Command {
 			ctx := context.Background()
 			event := ce.NewEvent()
 			event.SetExtension(xceVanusEventbus, eventbus)
+			timestamp := ce.Timestamp{
+				Time: time.Now(),
+			}
+			log.Info(ctx, "send timestamp", map[string]interface{}{
+				"type":      reflect.TypeOf(timestamp),
+				"timestamp": timestamp,
+			})
+			event.SetExtension(xVanusDeliveryTime, timestamp)
 			ebClient := utils.NewEventbusClient(ctx, eventbus)
 			defer ebClient.Close(ctx)
 			now := time.Now().UTC()
@@ -259,17 +295,35 @@ func listEventbusCommand() *cobra.Command {
 		Short:   "list eventbus",
 		Example: "vsctl-timer eventbus list eventbus-name",
 		Run: func(cmd *cobra.Command, args []string) {
-			if len(args) == 0 {
-				utils.CmdFailedWithHelpNotice(cmd, "eventbus name can't be empty\n")
-			}
 			ctx := context.Background()
 			rsp, err := utils.ListEventbus(ctx)
 			if err != nil {
 				utils.CmdFailedWithHelpNotice(cmd, "create eventbus failed\n")
 			}
 
-			data, _ := json.Marshal(rsp)
-			color.Green(string(data))
+			t := table.NewWriter()
+			t.AppendHeader(table.Row{"Name", "ID", "Eventlog", "Segments"})
+			for idx := range rsp.Eventbus {
+				eb := rsp.Eventbus[idx]
+				if len(eb.Logs) == 0 {
+					t.AppendRow(table.Row{eb.Name, eb.Id})
+				} else {
+					t.AppendRow(table.Row{eb.Name, eb.Id, eb.Logs[0].EventLogId, eb.Logs[0].CurrentSegmentNumbers})
+					for sIdx := 1; sIdx < len(eb.Logs); sIdx++ {
+						t.AppendSeparator()
+						t.AppendRow(table.Row{eb.Name, eb.Id, eb.Logs[idx].EventLogId, eb.Logs[idx].CurrentSegmentNumbers})
+					}
+				}
+				t.AppendSeparator()
+			}
+			t.SetColumnConfigs([]table.ColumnConfig{
+				{Number: 1, VAlign: text.VAlignMiddle, Align: text.AlignCenter, AlignHeader: text.AlignCenter},
+				{Number: 2, VAlign: text.VAlignMiddle, Align: text.AlignCenter, AlignHeader: text.AlignCenter},
+				{Number: 3, Align: text.AlignCenter, AlignHeader: text.AlignCenter},
+				{Number: 4, Align: text.AlignCenter, AlignHeader: text.AlignCenter},
+			})
+			t.SetOutputMirror(os.Stdout)
+			t.Render()
 		},
 	}
 	return cmd
