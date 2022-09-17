@@ -35,21 +35,35 @@ func RegisterControllerMetrics() {
 	prometheus.MustRegister(SegmentCreationRuntimeCounterVec)
 	prometheus.MustRegister(SegmentDeletedCounterVec)
 	prometheus.MustRegister(SubscriptionGauge)
+	prometheus.MustRegister(SubscriptionTransformerGauge)
 	prometheus.MustRegister(CtrlTriggerGauge)
 }
 
 func RegisterTriggerMetrics() {
+	registerGoRuntimeMetrics()
 	prometheus.MustRegister(TriggerGauge)
 	prometheus.MustRegister(TriggerPullEventCounter)
-	prometheus.MustRegister(TriggerFilterMatchCounter)
+	prometheus.MustRegister(TriggerFilterCostSecond)
+	prometheus.MustRegister(TriggerTransformCostSecond)
+	prometheus.MustRegister(TriggerFilterMatchEventCounter)
+	prometheus.MustRegister(TriggerFilterMatchRetryEventCounter)
+	prometheus.MustRegister(TriggerRetryEventCounter)
+	prometheus.MustRegister(TriggerRetryEventAppendSecond)
+	prometheus.MustRegister(TriggerDeadLetterEventCounter)
+	prometheus.MustRegister(TriggerDeadLetterEventAppendSecond)
 	prometheus.MustRegister(TriggerPushEventCounter)
-	prometheus.MustRegister(TriggerPushEventRtCounter)
+	prometheus.MustRegister(TriggerPushEventTime)
 }
 
 func RegisterTimerMetrics() {
 	prometheus.MustRegister(TimingWheelTickGauge)
 	prometheus.MustRegister(TimingWheelSizeGauge)
 	prometheus.MustRegister(TimingWheelLayersGauge)
+	prometheus.MustRegister(TimerPushEventTPSCounterVec)
+	prometheus.MustRegister(TimerDeliverEventTPSCounterVec)
+	prometheus.MustRegister(TimerScheduledEventDelayTime)
+	prometheus.MustRegister(TimerPushEventTime)
+	prometheus.MustRegister(TimerDeliverEventTime)
 }
 
 func RegisterSegmentServerMetrics() {
