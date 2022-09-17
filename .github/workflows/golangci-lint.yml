@@ -17,6 +17,7 @@ jobs:
         go: [ 1.18 ]
         os: [ ubuntu-latest ]
     name: lint
+    if: false
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/setup-go@v3
