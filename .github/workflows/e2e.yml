@@ -39,6 +39,7 @@ jobs:
         run: |
           export IMAGE_TAG=$(git log -1 --format='%h' | awk '{print $0}')
           export VERSION=$(cat ./deploy/all-in-one.yaml| grep -w "image" | awk -F ":" '{print $NF}' | awk 'FNR == 1')
+          export BUILDPLATFORM=$(uname -m)
           sed -i "s/${VERSION}/${IMAGE_TAG}/g" ./deploy/all-in-one.yaml
           eval $(minikube docker-env)
           make docker-build
