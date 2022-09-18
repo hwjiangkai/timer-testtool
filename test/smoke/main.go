@@ -255,7 +255,7 @@ func getEvent(eventbus, offset, number string) error {
 		log.Errorf("get event from eventbus[%s]&offset[%s]&number[%s] failed, err: %s\n", eventbus, offset, number, err)
 		return err
 	}
-	log.Infof("get event from eventbus[%s]&offset[%s]&number[%s] success, event: %+v\n", eventbus, offset, number, event)
+	log.Infof("get event from eventbus[%s]&offset[%s]&number[%s] success, event: %s\n", eventbus, offset, number, event.String())
 	return nil
 }
 
@@ -271,10 +271,9 @@ func Test_e2e_base() {
 		return
 	}
 
-	// putEvents(0, 10000, 100, eventBus, EventBody, EventSource)
-	putEvent(eventBus, "id", EventType, EventBody, EventSource)
+	putEvents(0, 2, 1, eventBus, EventBody, EventSource)
 
-	err = getEvent(eventBus, "0", "1")
+	err = getEvent(eventBus, "0", "10000")
 	if err != nil {
 		log.Error("Test_e2e_base get event failed")
 		return
@@ -301,16 +300,13 @@ func Test_e2e_filter() {
 		return
 	}
 
-	// putEvents(0, 2000, 100, eventBus, EventBody, EventSource)
-	putEvent(eventBus, "id", EventType, EventBody, EventSource)
+	putEvents(0, 2000, 100, eventBus, EventBody, EventSource)
 	eventSource := "filter"
-	// putEvents(2000, 4000, 10, eventBus, EventBody, eventSource)
-	putEvent(eventBus, "id", EventType, EventBody, eventSource)
+	putEvents(2000, 4000, 10, eventBus, EventBody, eventSource)
 	eventBody := "{\"key\":\"value\"}"
-	// putEvents(4000, 4000, 100, eventBus, eventBody, EventSource)
-	putEvent(eventBus, "id", EventType, eventBody, eventSource)
+	putEvents(4000, 4000, 100, eventBus, eventBody, EventSource)
 
-	err = getEvent(eventBus, "0", "2")
+	err = getEvent(eventBus, "0", "8000")
 	if err != nil {
 		log.Error("Test_e2e_filter get event failed")
 		return
@@ -318,12 +314,57 @@ func Test_e2e_filter() {
 	log.Info("Test_e2e_filter get event success")
 }
 
+func Test_e2e_transformation() {
+	eventBus := "eventbus-transformation"
+	err = createEventbus(eventBus)
+	if err != nil {
+		return
+	}
+
+	transformer := "{\"template\": \"{\\\"transKey\\\": \\\"transValue\\\"}\"}"
+	err = createSubscription(eventBus, Sink, Source, Filters, transformer)
+	if err != nil {
+		return
+	}
+
+	putEvents(0, 10000, 100, eventBus, EventBody, EventSource)
+
+	err = getEvent(eventBus, "0", "10000")
+	if err != nil {
+		log.Error("Test_e2e_transformation get event failed")
+		return
+	}
+	log.Info("Test_e2e_filter get event success")
+}
+
+func Test_e2e_metadata() {
+	eventBus := "eventbus-meta"
+	err = createEventbus(eventBus)
+	if err != nil {
+		return
+	}
+
+	// Currently, only check metadata of eventbus
+	var path string = fmt.Sprintf("%s/%s", EventbusKeyPrefixInKVStore, eventBus)
+	ctx := context.Background()
+	meta, err := EtcdClient.Get(ctx, path)
+	if err != nil {
+		log.Errorf("get metadata failed, path: %s, err: %s\n", path, err.Error())
+		return
+	}
+	log.Infof("get metadata success, path: %s, mata: %s\n", path, string(meta))
+}
+
 func main() {
 	log.Info("start e2e test base case...")
 
 	Test_e2e_base()
 
-	Test_e2e_filter()
+	// Test_e2e_filter()
+
+	// Test_e2e_transformation()
+
+	// Test_e2e_metadata()
 
 	log.Info("finish e2e test base case...")
 }

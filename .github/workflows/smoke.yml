@@ -46,10 +46,14 @@ jobs:
           kubectl apply -f ./deploy/all-in-one.yaml
           kubectl apply -f ./test/yaml/display.yml
           kubectl apply -f ./test/yaml/etcd-srv.yml
-          # make build-cmd
-          # chmod ug+x ./bin/vsctl
-          # sudo mv ./bin/vsctl /usr/local/bin/vsctl
+          make build-cmd
+          chmod ug+x ./bin/vsctl
+          sudo mv ./bin/vsctl /usr/local/bin/vsctl
           sleep 60s && for i in $(seq 1 20); do kubectl get pod -n vanus --no-headers | grep -v Run || break;sleep 5s;done
+          echo "Post Deploy Vanus"
+          kubectl get pod -n vanus
+          minikube service list
+          vsctl cluster controller topology
 
       - name: Exec smoke
         run: |
@@ -58,6 +62,16 @@ jobs:
 
       - name: Check smoke
         run: |
+          vsctl event get eventbus-base --offset 0 --number 5
+          vsctl event get eventbus-filter --offset 0 --number 5
+          vsctl eventbus create --name "quick-start"
+          vsctl event put quick-start --data-format plain --body "Hello Vanus" --id "1" --source "quick-start"
+          echo sleep1s
+          sleep 1s
+          vsctl event get quick-start --offset 0 --number 1
+          echo sleep1s
+          sleep 1s
+          vsctl event get quick-start --offset 0 --number 1
           kubectl get pod -n vanus | grep quick-display | awk '{print $1}' | xargs kubectl logs -n vanus | grep -n "total" | wc -l
           echo sleep5s
           sleep 5s
