@@ -22,7 +22,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       VANUS_GATEWAY: 192.168.49.2:30001
-      BUILDPLATFORM: amd64
+      BUILDPLATFORM: linux/amd64
       
     steps:
       - name: Check out repository code
