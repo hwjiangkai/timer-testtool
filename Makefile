@@ -83,6 +83,9 @@ build-gw-util:
 build-e2e:
 	go build -o bin/e2e test/e2e/quick-start/main.go
 
+build-smoke:
+	go build -o bin/smoke test/smoke/main.go
+
 build-destruct:
 	go build -o bin/destruct test/e2e/destruct/main.go
 
