@@ -255,7 +255,7 @@ func getEvent(eventbus, offset, number string) error {
 		log.Errorf("get event from eventbus[%s]&offset[%s]&number[%s] failed, err: %s\n", eventbus, offset, number, err)
 		return err
 	}
-	log.Infof("get event from eventbus[%s]&offset[%s]&number[%s] success, event: %s\n", eventbus, offset, number, event.String())
+	log.Infof("get event from eventbus[%s]&offset[%s]&number[%s] success, event: %+v\n", eventbus, offset, number, event)
 	return nil
 }
 
