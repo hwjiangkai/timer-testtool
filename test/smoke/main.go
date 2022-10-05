@@ -189,14 +189,9 @@ func createSubscription(eventbus, sink, source, filters, transformer string) err
 }
 
 func putEvent(eventbus, eventID, eventType, eventBody, eventSource string) error {
-	p, err := ce.NewHTTP()
+	client, err := ce.NewClientHTTP()
 	if err != nil {
-		log.Errorf("init ce protocol error: %s\n", err)
-		return err
-	}
-	c, err := ce.NewClient(p, ce.WithTimeNow(), ce.WithUUIDs())
-	if err != nil {
-		log.Errorf("create ce client error: %s\n", err)
+		log.Errorf("new cloudevents client failed, err: %s\n", err.Error())
 		return err
 	}
 
@@ -204,7 +199,7 @@ func putEvent(eventbus, eventID, eventType, eventBody, eventSource string) error
 		eventID = uuid.NewString()
 	}
 
-	ceCtx := ce.ContextWithTarget(context.Background(), fmt.Sprintf("%s%s/gateway/%s", HttpPrefix, Endpoint, eventbus))
+	ctx := ce.ContextWithTarget(context.Background(), fmt.Sprintf("%s%s/gateway/%s", HttpPrefix, Endpoint, eventbus))
 	event := ce.NewEvent()
 	event.SetID(eventID)
 	event.SetSource(eventSource)
@@ -214,7 +209,10 @@ func putEvent(eventbus, eventID, eventType, eventBody, eventSource string) error
 		log.Errorf("set data failed: %s\n", err)
 		return err
 	}
-	c.Send(ceCtx, event)
+	if result := client.Send(ctx, event); ce.IsUndelivered(result) {
+		log.Errorf("failed to send event, err: %s\n", result.Error())
+		return err
+	}
 	log.Infof("put event[%s] success.", event.ID())
 	return nil
 }
@@ -270,10 +268,11 @@ func Test_e2e_base() {
 	if err != nil {
 		return
 	}
+	time.Sleep(time.Second)
 
-	putEvents(0, 2, 1, eventBus, EventBody, EventSource)
+	putEvents(0, 10000, 100, eventBus, EventBody, EventSource)
 
-	err = getEvent(eventBus, "0", "10000")
+	err = getEvent(eventBus, "0", "10")
 	if err != nil {
 		log.Error("Test_e2e_base get event failed")
 		return
