@@ -242,6 +242,7 @@ func putEvents(offset, eventNum, threadNum int64, eventBus, eventBody, eventSour
 }
 
 func getEvent(eventbus, offset, number string) error {
+	log.Errorf("===getEvent=== endpoint: %s", Endpoint)
 	idx := strings.LastIndex(Endpoint, ":")
 	port, err := strconv.Atoi(Endpoint[idx+1:])
 	if err != nil {
@@ -255,7 +256,17 @@ func getEvent(eventbus, offset, number string) error {
 		log.Errorf("get event from eventbus[%s]&offset[%s]&number[%s] failed, err: %s\n", eventbus, offset, number, err)
 		return err
 	}
-	log.Infof("get event from eventbus[%s]&offset[%s]&number[%s] success, event: %s\n", eventbus, offset, number, event.String())
+	log.Infof("get event from eventbus[%s]&offset[%s]&number[%s] success, event: %+v\n", eventbus, offset, number, event)
+	log.Infof("===err===: %+v \n", err)
+	log.Infof("===event1===: %+v \n", event)
+	log.Infof("===event2===: %+v \n", event.RawResponse.Status)
+	log.Infof("===event3===: %+v \n", event.IsError())
+	log.Infof("===event4===: %+v \n", event.IsSuccess())
+	log.Infof("===event5===: %+v \n", event.Body())
+	log.Infof("===event6===: %+v \n", event.Status())
+	log.Infof("===event7===: %+v \n", event.StatusCode())
+	log.Infof("===event8===: %+v \n", event.Result())
+	log.Infof("===event9===: %+v \n", event.String())
 	return nil
 }
 
@@ -271,9 +282,11 @@ func Test_e2e_base() {
 		return
 	}
 
-	putEvents(0, 2, 1, eventBus, EventBody, EventSource)
+	// putEvents(0, 10000, 100, eventBus, EventBody, EventSource)
+	putEvent(eventBus, "id", EventType, EventBody, EventSource)
 
-	err = getEvent(eventBus, "0", "10000")
+	time.Sleep(5 * time.Second)
+	err = getEvent(eventBus, "0", "1")
 	if err != nil {
 		log.Error("Test_e2e_base get event failed")
 		return
@@ -300,13 +313,16 @@ func Test_e2e_filter() {
 		return
 	}
 
-	putEvents(0, 2000, 100, eventBus, EventBody, EventSource)
+	// putEvents(0, 2000, 100, eventBus, EventBody, EventSource)
+	putEvent(eventBus, "id", EventType, EventBody, EventSource)
 	eventSource := "filter"
-	putEvents(2000, 4000, 10, eventBus, EventBody, eventSource)
+	// putEvents(2000, 4000, 10, eventBus, EventBody, eventSource)
+	putEvent(eventBus, "id", EventType, EventBody, eventSource)
 	eventBody := "{\"key\":\"value\"}"
-	putEvents(4000, 4000, 100, eventBus, eventBody, EventSource)
+	// putEvents(4000, 4000, 100, eventBus, eventBody, EventSource)
+	putEvent(eventBus, "id", EventType, eventBody, eventSource)
 
-	err = getEvent(eventBus, "0", "8000")
+	err = getEvent(eventBus, "0", "2")
 	if err != nil {
 		log.Error("Test_e2e_filter get event failed")
 		return
@@ -314,57 +330,12 @@ func Test_e2e_filter() {
 	log.Info("Test_e2e_filter get event success")
 }
 
-func Test_e2e_transformation() {
-	eventBus := "eventbus-transformation"
-	err = createEventbus(eventBus)
-	if err != nil {
-		return
-	}
-
-	transformer := "{\"template\": \"{\\\"transKey\\\": \\\"transValue\\\"}\"}"
-	err = createSubscription(eventBus, Sink, Source, Filters, transformer)
-	if err != nil {
-		return
-	}
-
-	putEvents(0, 10000, 100, eventBus, EventBody, EventSource)
-
-	err = getEvent(eventBus, "0", "10000")
-	if err != nil {
-		log.Error("Test_e2e_transformation get event failed")
-		return
-	}
-	log.Info("Test_e2e_filter get event success")
-}
-
-func Test_e2e_metadata() {
-	eventBus := "eventbus-meta"
-	err = createEventbus(eventBus)
-	if err != nil {
-		return
-	}
-
-	// Currently, only check metadata of eventbus
-	var path string = fmt.Sprintf("%s/%s", EventbusKeyPrefixInKVStore, eventBus)
-	ctx := context.Background()
-	meta, err := EtcdClient.Get(ctx, path)
-	if err != nil {
-		log.Errorf("get metadata failed, path: %s, err: %s\n", path, err.Error())
-		return
-	}
-	log.Infof("get metadata success, path: %s, mata: %s\n", path, string(meta))
-}
-
 func main() {
 	log.Info("start e2e test base case...")
 
 	Test_e2e_base()
 
-	// Test_e2e_filter()
-
-	// Test_e2e_transformation()
-
-	// Test_e2e_metadata()
+	Test_e2e_filter()
 
 	log.Info("finish e2e test base case...")
 }

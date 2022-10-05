@@ -11,13 +11,6 @@ jobs:
   smoke:
     name: smoke
     if: |
-      startsWith(github.event.pull_request.title, 'fix:') ||
-      startsWith(github.event.pull_request.title, 'fix(') ||
-      startsWith(github.event.pull_request.title, 'feat:') ||
-      startsWith(github.event.pull_request.title, 'feat(') ||
-      startsWith(github.event.pull_request.title, 'feat!:') ||
-      startsWith(github.event.pull_request.title, 'refactor:') ||
-      startsWith(github.event.pull_request.title, 'refactor(') ||
       true
     runs-on: ubuntu-latest
     env:
