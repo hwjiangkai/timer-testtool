@@ -52,7 +52,7 @@ const (
 
 const (
 	HttpPrefix = "http://"
-	EventBus   = "quick-start"
+	EventBus   = "e2e"
 )
 
 var (
@@ -63,7 +63,7 @@ var (
 
 	EventType   = "examples"
 	EventBody   = "Hello Vanus"
-	EventSource = "quick-start"
+	EventSource = "e2e"
 
 	HttpClient = resty.New()
 	Endpoint   = os.Getenv("VANUS_GATEWAY")
@@ -146,7 +146,7 @@ func createEventbus(eb string) error {
 	return nil
 }
 
-func createSubscription(eventbus, sink, source, filters, transformer string) error {
+func createSubscription(eventbus, sink, source, filters, transformer string) (uint64, error) {
 	ctx := context.Background()
 	grpcConn := mustGetControllerProxyConn(ctx)
 	defer func() {
@@ -157,7 +157,7 @@ func createSubscription(eventbus, sink, source, filters, transformer string) err
 		err := json.Unmarshal([]byte(filters), &filter)
 		if err != nil {
 			log.Errorf("the filter invalid, err: %s", err)
-			return err
+			return 0, err
 		}
 	}
 
@@ -166,7 +166,7 @@ func createSubscription(eventbus, sink, source, filters, transformer string) err
 		err := json.Unmarshal([]byte(transformer), &trans)
 		if err != nil {
 			log.Errorf("the transformer invalid, err: %s", err)
-			return err
+			return 0, err
 		}
 	}
 
@@ -182,9 +182,28 @@ func createSubscription(eventbus, sink, source, filters, transformer string) err
 	})
 	if err != nil {
 		log.Errorf("create subscription failed, err: %s", err)
-		return err
+		return 0, err
 	}
 	log.Infof("create subscription[%d] success.", res.Id)
+	return res.Id, nil
+}
+
+func deleteSubscription(id uint64) error {
+	ctx := context.Background()
+	grpcConn := mustGetControllerProxyConn(ctx)
+	defer func() {
+		_ = grpcConn.Close()
+	}()
+
+	cli := ctrlpb.NewTriggerControllerClient(grpcConn)
+	_, err := cli.DeleteSubscription(ctx, &ctrlpb.DeleteSubscriptionRequest{
+		Id: id,
+	})
+	if err != nil {
+		log.Errorf("delete subscription failed, err: %s", err)
+		return err
+	}
+	log.Infof("delete subscription[%d] success.", id)
 	return nil
 }
 
@@ -213,7 +232,7 @@ func putEvent(eventbus, eventID, eventType, eventBody, eventSource string) error
 		log.Errorf("failed to send event, err: %s\n", result.Error())
 		return err
 	}
-	log.Infof("put event[%s] success.", event.ID())
+	// log.Infof("put event[%s] success.", event.ID())
 	return nil
 }
 
@@ -236,6 +255,7 @@ func putEvents(offset, eventNum, threadNum int64, eventBus, eventBody, eventSour
 		eventid = eventid + eventNum/threadNum
 	}
 	wg.Wait()
+	log.Infof("put %d events success.", eventNum)
 	return nil
 }
 
@@ -257,55 +277,76 @@ func getEvent(eventbus, offset, number string) error {
 	return nil
 }
 
+func Init() error {
+	err := createEventbus(EventBus)
+	if err != nil {
+		return err
+	}
+
+	// wait for eventbus ready
+	time.Sleep(3 * time.Second)
+	return nil
+}
+
 func Test_e2e_base() {
+	log.Info("Start test e2e basecase")
 	eventBus := "eventbus-base"
 	err = createEventbus(eventBus)
 	if err != nil {
 		return
 	}
 
-	err = createSubscription(eventBus, Sink, Source, Filters, Transformer)
+	id, err := createSubscription(EventBus, Sink, Source, Filters, Transformer)
 	if err != nil {
+		log.Error("create subsription failed")
 		return
 	}
-	time.Sleep(time.Second)
+	log.Info("create subsription success")
 
-	putEvents(0, 10000, 100, eventBus, EventBody, EventSource)
-
-	err = getEvent(eventBus, "0", "10")
+	err = putEvents(0, 10000, 100, EventBus, EventBody, EventSource)
 	if err != nil {
-		log.Error("Test_e2e_base get event failed")
+		log.Error("put events failed")
 		return
 	}
-	log.Info("Test_e2e_base get event success")
+	log.Info("put events success")
+
+	err = getEvent(EventBus, "9999", "1")
+	if err != nil {
+		log.Error("get event failed")
+		return
+	}
+	log.Info("get event success")
+
+	deleteSubscription(id)
+	log.Info("Finish test e2e basecase")
 }
 
 func Test_e2e_filter() {
 	eventBus := "eventbus-filter"
-	err = createEventbus(eventBus)
+	err = createEventbus(EventBus)
 	if err != nil {
 		return
 	}
 
 	filters := "[{\"exact\": {\"source\":\"filter\"}}]"
-	err = createSubscription(eventBus, Sink, Source, filters, Transformer)
+	err = createSubscription(EventBus, Sink, Source, filters, Transformer)
 	if err != nil {
 		return
 	}
 
 	filters = "[{\"cel\": \"$key.(string) == \\\"value\\\"\"}]"
-	err = createSubscription(eventBus, Sink, Source, filters, Transformer)
+	err = createSubscription(EventBus, Sink, Source, filters, Transformer)
 	if err != nil {
 		return
 	}
 
-	putEvents(0, 2000, 100, eventBus, EventBody, EventSource)
+	putEvents(0, 2000, 100, EventBus, EventBody, EventSource)
 	eventSource := "filter"
-	putEvents(2000, 4000, 10, eventBus, EventBody, eventSource)
+	putEvents(2000, 4000, 10, EventBus, EventBody, eventSource)
 	eventBody := "{\"key\":\"value\"}"
-	putEvents(4000, 4000, 100, eventBus, eventBody, EventSource)
+	putEvents(4000, 4000, 100, EventBus, eventBody, EventSource)
 
-	err = getEvent(eventBus, "0", "8000")
+	err = getEvent(EventBus, "0", "8000", false)
 	if err != nil {
 		log.Error("Test_e2e_filter get event failed")
 		return
@@ -328,7 +369,7 @@ func Test_e2e_transformation() {
 
 	putEvents(0, 10000, 100, eventBus, EventBody, EventSource)
 
-	err = getEvent(eventBus, "0", "10000")
+	err = getEvent(eventBus, "0", "10000", false)
 	if err != nil {
 		log.Error("Test_e2e_transformation get event failed")
 		return
