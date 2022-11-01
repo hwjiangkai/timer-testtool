@@ -1,4 +1,4 @@
-name: e2e
+name: smoke
 on:
   pull_request:
     branches:
@@ -8,16 +8,9 @@ permissions:
   # Optional: allow read access to pull request. Use with `only-new-issues` option.
   # pull-requests: read-
 jobs:
-  e2e:
-    name: e2e
+  smoke:
+    name: smoke
     if: |
-      startsWith(github.event.pull_request.title, 'fix:') ||
-      startsWith(github.event.pull_request.title, 'fix(') ||
-      startsWith(github.event.pull_request.title, 'feat:') ||
-      startsWith(github.event.pull_request.title, 'feat(') ||
-      startsWith(github.event.pull_request.title, 'feat!:') ||
-      startsWith(github.event.pull_request.title, 'refactor:') ||
-      startsWith(github.event.pull_request.title, 'refactor(') ||
       true
     runs-on: ubuntu-latest
     env:
@@ -50,14 +43,35 @@ jobs:
           chmod ug+x ./bin/vsctl
           sudo mv ./bin/vsctl /usr/local/bin/vsctl
           sleep 60s && for i in $(seq 1 20); do kubectl get pod -n vanus --no-headers | grep -v Run || break;sleep 5s;done
+          echo "Post Deploy Vanus"
+          kubectl get pod -n vanus
+          minikube service list
+          vsctl cluster controller topology
 
-      - name: Exec e2e
+      - name: Exec smoke
         run: |
-          make build-e2e
-          ./bin/e2e
+          make build-smoke
+          ./bin/smoke
 
-      - name: Check e2e
+      - name: Check smoke
         run: |
+          vsctl eventbus list
+          vsctl event get eventbus-base --offset 0 --number 5
+          vsctl event get eventbus-filter --offset 0 --number 5
+          vsctl eventbus create --name "quick-start"
+          vsctl event put quick-start --data-format plain --body "Hello Vanus" --id "1" --source "quick-start"
+          echo sleep1s
+          sleep 1s
+          vsctl event get quick-start --offset 0 --number 1
+          echo sleep1s
+          sleep 1s
+          vsctl event get quick-start --offset 0 --number 1
           kubectl get pod -n vanus | grep quick-display | awk '{print $1}' | xargs kubectl logs -n vanus | grep -n "total" | wc -l
-          # [[ $(kubectl get pod -n vanus | grep quick-display | awk '{print $1}' | xargs kubectl logs -n vanus | grep -n "total" | wc -l) -eq 10001 ]] && echo "success" || echo "failed"
+          echo sleep5s
+          sleep 5s
+          kubectl get pod -n vanus | grep quick-display | awk '{print $1}' | xargs kubectl logs -n vanus | grep -n "total" | wc -l
+          echo sleep5s
+          sleep 5s
+          kubectl get pod -n vanus | grep quick-display | awk '{print $1}' | xargs kubectl logs -n vanus | grep -n "total" | wc -l
+          [[ $(kubectl get pod -n vanus | grep quick-display | awk '{print $1}' | xargs kubectl logs -n vanus | grep -n "total" | wc -l) -eq 4 ]] && echo "success" || echo "failed"
 

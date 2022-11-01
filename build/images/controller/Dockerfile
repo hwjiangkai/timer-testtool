@@ -1,4 +1,4 @@
-FROM --platform=$BUILDPLATFORM golang:1.18 as builder
+FROM --platform=amd64 golang:1.18 as builder
 WORKDIR /workspace
 
 COPY . .
